@@ -1,0 +1,289 @@
+# scenarios.yaml — haqqi_ta experiment waypoints
+# ─────────────────────────────────────────────────────────────────
+# PRINSIP WAYPOINTS:
+#   Convoy dan split dibuat Manhattan/siku-siku agar path antar-robot tidak
+#   melebar dan saling memotong berlebihan pada eksperimen multi-agent.
+#   Crossing dan merge masih memakai waypoint arc untuk transisi junction.
+#
+# FORMAT WAYPOINTS: [x, y, yaw_deg]
+#   yaw pada waypoint TENGAH = arah heading setelah melewati titik itu.
+#   yaw pada waypoint FINAL  = orientasi berhenti robot (penting!).
+#   yaw: 0=kanan, 90=atas, 180=kiri, -90=bawah
+# Conflict zone untuk eksperimen fisik TA dapat dijalankan manual dari
+# priority_manager_node agar deterministik. Auto conflict zone masih tersedia
+# sebagai fitur tambahan/debug bila /robot*/plan dan UDP path sudah stabil.
+# ─────────────────────────────────────────────────────────────────
+#
+# MAP LAYOUT (actual measured coords):
+#
+#   Start zone atas     y ≈ 5.80 → 5.30
+#   Horizontal corridor y ≈ 2.45 – 3.35
+#   Junction tengah     x ≈ 2.94, y ≈ 1.50
+#   Kiri bawah          x ≈ -0.69, y ≈ -0.68
+#   Tengah bawah        x ≈  2.94, y ≈ -0.25
+#   Kanan bawah         x ≈  6.08 – 6.78, y ≈ -0.27
+# ─────────────────────────────────────────────────────────────────
+
+scenarios:
+
+  # ════════════════════════════════════════════════════════════════
+  # FLAG GLOBAL PER SKENARIO (dibaca oleh experiment_master_cli / launch)
+  #
+  # formation_at_goal:
+  #   true  → skenario berakhir sebagai formasi; final pose boleh sudah dipisah
+  #            manual di waypoints, memakai shared-goal formation otomatis,
+  #            atau memakai final_formation_layout: circle.
+  #   false → skenario tidak dipaksa formasi jika goal tiap robot memang berbeda.
+  #
+  # final_formation_layout: circle
+  #   Jika formation_at_goal=true dan gathering_point tersedia, final waypoint
+  #   robot dipindah mengelilingi gathering_point. Sudut antar robot otomatis
+  #   360/N derajat (N = jumlah robot aktif), jadi 3 robot → beda 120°.
+  #   formation_radius default 0.30 m; formation_start_angle_deg menentukan
+  #   posisi robot pertama, lalu robot berikutnya mengikuti arah CCW.
+  #
+  # shared-goal formation otomatis:
+  #   Jika 2/3 robot punya final waypoint/goal_pose dengan (x,y) sama,
+  #   experiment_master_cli menganggap titik itu anchor formasi, lalu menggeser
+  #   final pose robot secara simetris supaya tidak tumpang tindih. Jika
+  #   final_formation_layout=circle, shared-goal juga memakai sudut 360/N.
+  #   formation_spacing default 0.30 m.
+  #   formation_offset_mode default lateral; bisa diubah ke fixed_y/fixed_x.
+  #   shared_goal_final_orientation_mode default face_anchor.
+  #
+  # l4_sync:
+  #   true  → L4 consensus aktif (vmax disesuaikan supaya semua tiba bersamaan).
+  #   false → L4 sync dinonaktifkan: consensus_node mengirim v_nominal ke semua robot.
+  #            Dipakai untuk sub-variasi tanpa sinkronisasi L4.
+  #   Variasi arrival offset memakai time_consensus + arrival_schedule YAML,
+  #   atau arrival_offset_robot* manual. time_offset_consensus hanya alias eksplisit.
+  #
+  # formation_offset_robot*:
+  #   Override nonzero untuk offset final per robot pada shared-goal formation.
+  #   Nilai 0.0 dianggap "pakai offset otomatis".
+  #   Jika tidak diisi, offset otomatis simetris berdasarkan jumlah robot di anchor.
+  # ════════════════════════════════════════════════════════════════
+
+  # ════════════════════════════════════════════════════════════════
+  # SKENARIO 1: CONVOY
+  #
+  # Start horizontal: R1 atas (y=3.35), R2 tengah (y=2.90), R3 bawah (y=2.55)
+  # Semua robot mulai di x=-0.57, heading east (0°), sudah dalam lane masing-masing.
+  # Setiap robot memakai kolom turun sendiri di area kanan bawah.
+  # Versi lama memakai WP2 sama-sama di x=6.10 sehingga robot3 yang selesai
+  # duluan bisa menutup jalur turun robot1/robot2. Convoy harus tetap paralel,
+  # bukan merge ke satu bottleneck.
+  #
+  # arrival_schedule: semua robot tiba bersamaan (convoy = sinkron).
+  # Perkiraan panjang lintasan ~10m; target 75s memberi margin stop-and-go.
+  # Catatan: nilai default — override via launch arg target_arrival_r1/r2/r3.
+  # ════════════════════════════════════════════════════════════════
+  convoy:
+    # Flags koordinasi
+    formation_at_goal: true     # robot tiba sebagai formasi terminal
+    final_formation_layout: circle
+    formation_radius: 0.30
+    formation_start_angle_deg: 330.0
+    l4_sync: true               # L4 consensus aktif; set false untuk sub-variasi async (percobaan 3)
+    # formation_offset: geser goal tiap robot secara lateral agar tidak tumpang tindih di zona goal.
+    # Nilai disesuaikan dengan lebar lane convoy (selisih y antara robot ±0.35-0.45m).
+    formation_offset_robot1:  0.0   # robot1 di lane atas — sudah di y=3.35, tidak perlu offset
+    formation_offset_robot2:  0.0   # robot2 di lane tengah (y=2.90)
+    formation_offset_robot3:  0.0   # robot3 di lane bawah (y=2.55)
+    # Catatan: final waypoint di bawah adalah jalur panduan; saat dikirim oleh
+    # experiment_master_cli, titik final diganti menjadi formasi circle di
+    # sekitar gathering_point dengan beda sudut 120° untuk 3 robot.
+    arrival_schedule:       # default — override via launch arg jika perlu
+      robot1: 75.0          # ~10.4m / 0.139 m/s
+      robot2: 75.0          # ~9.9m  / 0.132 m/s
+      robot3: 75.0          # ~9.5m  / 0.127 m/s
+    # Terminal formation orientation: robot menghadap pusat formasi akhir.
+    # Ini hanya orientasi akhir, bukan orientasi sepanjang convoy.
+    gathering_point:
+      x: 6.43
+      y: -0.27
+    final_orientation_mode: face_gathering_point
+    # Parameter DWA untuk skenario convoy (baca di launch atau experiment_master_cli):
+    #   peer_blocking_max_dist_m: 0.50   # threshold convoy — peer di jarak normal tidak trigger HOLO_BLK
+    #   ekf_warmup_steps: 15             # tunggu 15 AMCL update sebelum collision check aktif
+    robot1:
+      start_pose: {x: -0.57, y: 3.35, yaw_deg: 0.0}
+      waypoints:
+        - [ 6.78,  3.35, -90.0]   # WP1: ujung kanan atas — turn apex lane atas
+        - [ 6.78, -0.27, -90.0]   # FINAL: kanan bawah lane atas
+
+    robot2:
+      start_pose: {x: -0.57, y: 2.90, yaw_deg: 0.0}
+      waypoints:
+        - [ 6.43,  2.90, -90.0]   # WP1: ujung kanan tengah — turn apex lane tengah
+        - [ 6.43, -0.27, -90.0]   # FINAL: kanan bawah lane tengah
+
+    robot3:
+      start_pose: {x: -0.57, y: 2.55, yaw_deg: 0.0}
+      waypoints:
+        - [ 6.08,  2.55, -90.0]   # WP1: ujung kanan bawah — turn apex lane bawah
+        - [ 6.08, -0.27, -90.0]   # FINAL: kanan bawah lane bawah
+
+  # ════════════════════════════════════════════════════════════════
+  # SKENARIO 2: CROSSING (clockwise)
+  #
+  # R1: kiri tengah (-0.57, 2.74) → belok south di junction → tengah bawah
+  # R2: tengah bawah (2.94, -0.25) → belok east di junction → kanan tengah
+  # R3: kanan tengah (6.41, 2.90) → straight west → kiri tengah
+  #
+  # Konflik: R1↔R3 head-on di horizontal corridor (priority menyelesaikan)
+  #          R2↔R3 area junction (R3 prio > R2)
+  #
+  # arrival_schedule: target berbeda agar robot tidak tiba di junction bersamaan.
+  # R3 (prio tertinggi) diberi target lebih ketat; R1 & R2 diberi target mundur.
+  # Waypoint dibuat sebagai approach -> junction offset -> exit -> final.
+  # Tiap robot punya titik junction berbeda sekitar ±0.20-0.25m sehingga
+  # tidak semua dipaksa mengejar titik pusat konflik yang sama.
+  # ════════════════════════════════════════════════════════════════
+  crossing:
+    formation_at_goal: false    # robot ke goal berbeda, tidak perlu formasi di goal
+    l4_sync: true               # L4 aktif; Masalah 2 (exclude STOP robots) sudah di-fix
+    formation_offset_robot1:  0.0
+    formation_offset_robot2:  0.0
+    formation_offset_robot3:  0.0
+    arrival_schedule:       # [MOD-XGEO] disesuaikan dgn reroute junction (clearance >=0.25m)
+      robot1: 58.0          # L=6.13m; mundur agar masuk junction setelah R3 clear
+      robot2: 64.0          # L=5.81m; terakhir, setelah R1 clear koridor selatan
+      robot3: 53.0          # L=7.10m; prio tertinggi, ~v_nominal lajur utara->barat
+    robot1:
+      start_pose: {x: -0.573, y: 2.741, yaw_deg:   0.0}
+      waypoints:
+        - [ 0.80,  2.52,   0.0]   # [MOD-XGEO] dip bawah obstacle koridor-barat (clr 0.28)
+        - [ 2.35,  2.60,   0.0]   # approach junction lajur bawah (clr 0.47)
+        - [ 2.72,  2.52, -45.0]   # mulai belok south (clr 0.60)
+        - [ 2.94,  2.05, -90.0]   # exit ke koridor selatan (clr 0.79)
+        - [ 2.94, -0.249, -90.0]  # FINAL: tengah bawah
+
+    robot2:
+      start_pose: {x: 2.941, y: -0.249, yaw_deg:  90.0}
+      waypoints:
+        - [ 3.16,  2.00,  90.0]   # approach naik lajur kanan (clr 0.76)
+        - [ 3.45,  2.45,  45.0]   # [MOD-XGEO] belok east SELATAN obstacle junction (clr 0.34)
+        - [ 3.85,  2.62,   0.0]   # exit lajur bawah, timur dinding (clr 0.57)
+        - [ 6.413, 2.897,  0.0]   # FINAL: kanan tengah
+
+    robot3:
+      start_pose: {x: 6.413, y: 2.897, yaw_deg: 180.0}
+      waypoints:
+        - [ 3.95,  2.85, 180.0]   # approach lajur timur, bebas dinding (clr 0.56)
+        - [ 3.38,  2.45, 180.0]   # [MOD-XGEO] lewat SELATAN obstacle junction (clr 0.31)
+        - [ 2.55,  2.45, 180.0]   # koridor bawah ke barat (clr 0.68)
+        - [ 0.80,  2.45, 180.0]   # [MOD-XGEO] dip bawah obstacle koridor-barat (clr 0.35)
+        - [-0.573, 2.741, 180.0]  # FINAL: kiri tengah
+
+  # ════════════════════════════════════════════════════════════════
+  # SKENARIO 3: MERGE
+  #
+  # Start merge diambil dari pose aktual AMCL saat setup eksperimen.
+  # Goal/anchor formasi diambil dari 2D Goal Pose RViz:
+  #   goal = (3.00784, 2.93583, yaw 93.17°)
+  # R1: dari atas-kiri → masuk formasi sisi atas
+  # R2: dari bawah-kiri → masuk formasi sisi kiri
+  # R3: dari kanan-bawah → masuk formasi sisi bawah
+  #
+  # Bottleneck: semua masuk area formasi dekat goal merge.
+  # Priority manager menyelesaikan urutan (R3 > R2 > R1).
+  #
+  # arrival_schedule dibuat mirip karena ketiga lintasan sekitar 3.8–4.0m.
+  #
+  # gathering_point: pusat titik kumpul / anchor formasi terminal.
+  # final_formation_layout: circle
+  #   → final tiap robot diletakkan melingkar radius 0.30m dari anchor,
+  #      beda sudut 120° untuk 3 robot aktif.
+  # final_orientation_mode: face_gathering_point
+  #   → tiap robot menghadap kembali ke anchor formasi.
+  # ════════════════════════════════════════════════════════════════
+  merge:
+    formation_at_goal: true     # robot tiba di posisi terpisah membentuk formasi di goal
+    final_formation_layout: circle
+    formation_radius: 0.30
+    # Sudut eksplisit menjaga beda 120°, diputar +90° agar tiap robot berhenti
+    # di sisi arah datangnya (tanpa menyilang): R1 barat, R2 selatan, R3 timur.
+    formation_angle_robot1: 150.0
+    formation_angle_robot2: 270.0
+    formation_angle_robot3: 30.0
+    l4_sync: true               # L4 aktif — sinkronisasi kedatangan diperlukan untuk formasi
+    # [PSTOP-OFF] Matikan priority-stop & throttle (pair/zone/predictive) untuk merge
+    # → hilangkan backlash stop-go di bottleneck goal agar spread kedatangan minimum.
+    # Rem darurat hard-collision tetap aktif (disarankan untuk robot fisik).
+    priority_stop_enabled: false
+    hard_collision_brake_enabled: true
+    # Tiap robot hanya memakai 1 waypoint sudut + 1 final guide. Waypoint
+    # dibuat L-shape supaya robot belok tegak lurus menuju formasi. Titik final
+    # tetap diganti menjadi formasi circle di sekitar gathering_point, sehingga
+    # 3 robot berjarak sudut 120° dan menghadap anchor.
+    formation_offset_robot1:  0.0
+    formation_offset_robot2:  0.0
+    formation_offset_robot3:  0.0
+    arrival_schedule:
+      robot1: 35.0
+      robot2: 35.0
+      robot3: 35.0
+    gathering_point:
+      x: 3.00784
+      y: 2.93583
+    final_orientation_mode: face_gathering_point
+
+    robot1:
+      start_pose: {x: -0.559552, y: 4.50862, yaw_deg: -89.39}
+      waypoints:
+        - [-0.559552, 3.19564, 0.0]   # WP1: sudut L, turun lalu belok kanan
+        - [ 3.00784, 2.93583, 93.17]   # FINAL GUIDE: diganti ke circle R1 (atas)
+
+    robot2:
+      start_pose: {x: 1.10813, y: -0.460505, yaw_deg: 0.37}
+      waypoints:
+        - [ 2.70784, -0.460505, 90.0]   # WP1: sudut L, kanan lalu belok naik
+        - [ 3.00784, 2.93583, 93.17]   # FINAL GUIDE: diganti ke circle R2 (kiri)
+
+    robot3:
+      start_pose: {x: 6.3485, y: 1.2159, yaw_deg: 91.47}
+      waypoints:
+        - [ 6.3485, 2.67602, 180.0]   # WP1: sudut L, naik lalu belok kiri
+        - [ 3.00784, 2.93583, 93.17]   # FINAL GUIDE: diganti ke circle R3 (bawah)
+
+  # ════════════════════════════════════════════════════════════════
+  # SKENARIO 4: SPLIT
+  #
+  # Start horizontal: R1 atas (y=3.35), R2 tengah (y=2.90), R3 bawah (y=2.55)
+  # Semua robot mulai di x=-0.57, heading east (0°).
+  # R1: lurus ke kanan (kanan tengah) — 0 belokan
+  # R2: turn south di x=6.43 → kanan bawah — siku-siku
+  # R3: turn south di junction (x=2.94) → tengah bawah — siku-siku
+  #
+  # arrival_schedule: tiap robot ke tujuan berbeda, target sesuai panjang lintasan.
+  #   R1: ~7.0m straight → 55s
+  #   R2: ~9.9m dengan belokan → 75s
+  #   R3: ~6.3m dengan belokan → 50s
+  # ════════════════════════════════════════════════════════════════
+  split:
+    formation_at_goal: false    # robot ke goal berbeda (tidak perlu formasi)
+    l4_sync: true               # L4 aktif untuk sinkronisasi walaupun tidak formasi
+    formation_offset_robot1:  0.0
+    formation_offset_robot2:  0.0
+    formation_offset_robot3:  0.0
+    arrival_schedule:
+      robot1: 55.0
+      robot2: 75.0
+      robot3: 50.0
+    robot1:
+      start_pose: {x: -0.57, y: 3.35, yaw_deg: 0.0}
+      waypoints:
+        - [ 6.413, 3.350,   0.0]   # FINAL: kanan tengah (lurus)
+
+    robot2:
+      start_pose: {x: -0.57, y: 2.95, yaw_deg: 0.0}
+      waypoints:
+        - [ 6.430,  2.95, -90.0]   # WP1: turn apex kanan (1x belok: timur->selatan)
+        - [ 6.430, -0.270, -90.0]  # FINAL: kanan bawah (lurus turun ke goal, tanpa belok ke-2)
+
+    robot3:
+      start_pose: {x: -0.57, y: 2.55, yaw_deg: 0.0}
+      waypoints:
+        - [ 2.94,  2.55, -90.0]   # WP1: turn apex junction
+        - [ 2.940, -0.250, -90.0] # FINAL: tengah bawah

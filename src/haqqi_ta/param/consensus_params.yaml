@@ -1,0 +1,114 @@
+# consensus_params.yaml — haqqi_ta
+# Parameter Average Consensus Node (Layer 4)
+#
+# PENTING (audit): file ini TIDAK di-load oleh launch/multi_robot_bringup.launch.py.
+#   Node consensus menerima parameter dari LaunchConfiguration (default di
+#   multi_robot_bringup.launch.py) dan default declare_parameter di consensus_node.py,
+#   BUKAN dari YAML ini. Nilai di sini bersifat dokumentasi; untuk benar-benar berlaku,
+#   ubah default di launch/kode (sudah disinkronkan dengan nilai Fix B di audit ini).
+#
+# Syarat konvergensi untuk fully-connected 3 robot:
+#   epsilon < 1 / delta_max = 1 / 2 = 0.5
+#
+# Tuning guide:
+#   epsilon  ↑ → konvergensi lebih cepat, tapi risiko overshoot jika > 0.5
+#   k_consensus ↑ → robot ahead melambat lebih agresif (arrival time diff kecil)
+#                   tapi jika terlalu besar robot bisa berhenti total saat jauh tertinggal
+#
+# Rule of thumb awal:
+#   Jalankan skenario tanpa fault dulu, lihat grafik p_i vs waktu di rqt_plot.
+#   Kalau garis p_i tidak konvergen → turunkan epsilon.
+#   Kalau arrival time diff masih besar → naikkan k_consensus.
+
+consensus_node:
+  ros__parameters:
+
+    # Kecepatan nominal/jelajah (cruise) robot (m/s).
+    # [FIX-PRIOCAP] KOREKSI: v_nominal BUKAN sama dengan max_vel_x DWA (0.50).
+    #   - v_nominal (0.30)          = kecepatan cruise normal saat konsensus seimbang
+    #   - max_vel_x (0.50)          = batas keras mekanis DWA (cap eksekusi)
+    #   - v_consensus_ceiling (0.50)= plafon catch-up; laggard boleh dipercepat
+    #                                 dari 0.30 hingga 0.50 untuk menutup selisih.
+    # Jadi v_nominal < ceiling = max_vel_x adalah desain yang BENAR (bukan inkonsistensi).
+    v_nominal: 0.30
+
+    # Step size consensus discrete-time untuk virtual progress/konvergensi.
+    # WAJIB < 0.5 untuk fully-connected 3 robot.
+    epsilon: 0.03
+
+    # Deadband kontrol kecepatan: jika |e_i| = |p_i - p_bar| lebih kecil dari ini
+    # maka kirim v_nominal. Ini yang menentukan koreksi vcons mulai aktif.
+    epsilon_deadband: 0.02   # [FIX-ARRSYNC] 0.03->0.02 engage koreksi lebih awal
+
+    # Gain proportional bidirectional:
+    # vmax_i = clip(v_nominal + k_consensus * e_i, v_floor, v_ceiling)
+    # e_i = p_bar - p_i: positif = tertinggal, negatif = terlalu maju
+    k_consensus: 1.0   # [FIX-ARRSYNC] 0.70->1.0 leader melambat lebih agresif menunggu laggard
+
+    # Mode default: time_consensus memakai sisa-waktu tiba, bukan selisih progress.
+    # Offset bisa dari arrival_offset_robot* manual, atau dari arrival_schedule YAML
+    # saat offset manual kosong. time_offset_consensus dipertahankan sebagai alias eksplisit.
+    arrival_mode: 'time_consensus'
+    coordination_mode: ''
+    k_time: 0.20
+    epsilon_time_s: 0.30
+    feasibility_aware_eta_enabled: true
+    eta_v_eff_floor: 0.03
+    eta_v_eff_timeout_s: 1.0
+
+    # [FIX-ETAFILT] Low-pass (EMA) untuk v_hat sebelum ETA = remaining/v_hat.
+    # Meredam hipersensitivitas 1/v_hat (sumber utama osilasi bang-bang vmax).
+    # alpha kecil = lebih halus; 1.0 = tanpa filter. 0.30 ~ 3-4 tick smoothing @20Hz.
+    eta_v_filter_alpha: 0.20   # [FIX-SMOOTH] 0.30->0.20: v_hat lebih halus, kurangi osilasi ETA
+    # [FIX-VRATE] Slew-rate vmax consensus (m/s per detik). Cegah lompat floor<->ceiling
+    # dalam 1 tick. 0.80 @20Hz -> ~0.04/tick -> transisi floor<->ceiling ~0.6 s. <=0 nonaktif.
+    v_consensus_max_rate: 0.50   # [FIX-SMOOTH] 0.80->0.50: ramp vmax lebih landai (anti patah-patah)
+    # [FIX-VOUTLPF] EMA low-pass pada OUTPUT v_consensus (cap akhir) untuk meredam
+    # surging limit-cycle lambat. alpha kecil = lebih halus; 1.0 = tanpa filter.
+    v_consensus_output_filter_alpha: 0.10   # [FIX-SMOOTH] 0.15->0.10: output v_consensus lebih halus
+    # [FIX-DSDT] v_hat ETA dari laju kemajuan lintasan ds/dt (-d(remaining)/dt),
+    # bukan |v|=sqrt(vx^2+vy^2). Konsisten kinematik holonomic (abaikan gerak
+    # menyamping). false -> pakai dwa_speed_mag terencana (perilaku lama).
+    progress_speed_enabled: true
+    # |d(remaining)| > nilai ini (m) per tick dianggap replan/AMCL-jump -> diabaikan.
+    progress_speed_max_jump_m: 0.5
+    # [FIX-ROTETA] Tambah waktu rotasi terminal (|heading_err|/omega_max) ke ETA,
+    # supaya konsensus tahu robot masih perlu memutar (theta) sebelum benar2 selesai.
+    # Hanya aktif saat remaining <= eta_rot_activation_m (dekat terminal). false = mati.
+    eta_rot_term_enabled: false   # [FINALROT-OFF] selaras: rotasi-akhir mati -> ETA tak menambah waktu rotasi terminal
+    eta_rot_omega_max: 0.20       # rad/s = laju putar EFEKTIF final-align (max_rot_vel*0.8), bukan 0.25 mentah
+    eta_rot_activation_m: 0.30    # m: term aktif hanya saat sisa lintasan <= ini
+    eta_rot_time_cap_s: 8.0       # batas atas waktu rotasi (anti blow-up)
+
+    # Frekuensi update consensus (Hz)
+    consensus_rate: 20.0
+
+    # Threshold konvergensi — sistem dianggap konvergen jika
+    # semua |p_i - p_bar| < convergence_threshold
+    # Dipakai untuk menghitung consensus convergence time (metrik Bab 4)
+    convergence_threshold: 0.02
+
+    # Panjang path minimum yang dianggap valid (m)
+    # Path lebih pendek dari ini diabaikan (mencegah pembagian nol)
+    min_path_length: 0.10
+
+    # Batas bawah v_max yang dikeluarkan consensus (m/s)
+    # WAJIB < v_nominal agar consensus punya ruang kontrol.
+    # Contoh: v_nominal=0.30, v_floor=0.015, v_ceiling=0.50
+    # → robot ahead bisa diperlambat, robot behind bisa mengejar di atas nominal.
+    # Jika v_floor = v_nominal → output selalu konstan, consensus tidak efektif!
+    # 0.015 m/s: batas minimum agar DWA masih punya kandidat valid via holonomic
+    # constraint sqrt(vx²+vy²) ≤ vmax (dengan vx_samples=5, step=0.006 m/s).
+    # Floor ini hanya tercapai jika robot2 unggul >25% progress — sangat jarang
+    # dengan epsilon=0.03 yang sudah koreksi sejak awal.
+    v_consensus_floor: 0.015
+
+    # Batas atas v_max consensus (m/s).
+    v_consensus_ceiling: 0.50
+
+    # Jarak formasi convoy antar robot yang diinginkan (meter).
+    # Dipakai untuk auto-compute arrival_offset saat mode offset aktif
+    # dan semua arrival_offset_robot* masih 0 (default).
+    # Offset yang dihasilkan: R1=-delta_t, R2=0, R3=+delta_t
+    # dengan delta_t = formation_spacing / eta_v_ref.
+    formation_spacing: 0.5   # CATATAN: TIDAK dibaca consensus_node.py (param ini tak dideklarasikan di node). Dipakai formation_manager_node/experiment_master_cli.

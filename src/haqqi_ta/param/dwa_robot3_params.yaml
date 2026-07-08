@@ -1,0 +1,135 @@
+# dwa_robot3_params.yaml — haqqi_ta
+# Parameter Modified DWA untuk Robot 3
+#
+# Robot3 adalah leader dengan prioritas tertinggi (prio 1 / R3).
+# Tidak pernah berhenti karena robot lain — robot lain yang mengalah.
+# lambda_path sedikit lebih tinggi karena R3 jadi acuan progress consensus.
+
+/**:
+  ros__parameters:
+
+    robot_ns: "robot3"
+
+    # ── Kecepatan maksimum & minimum ────────────────────────────────────
+    max_vel_x: 0.50
+    max_vel_y: 0.10
+    max_rot_vel: 0.25
+    min_vel_x: -0.03
+    min_vel_y: -0.10
+
+    # ── Lookahead & toleransi ────────────────────────────────────────────
+    lookahead_distance: 0.30
+    goal_tolerance: 0.15
+    path_tracking_tolerance: 0.40
+    heading_alignment_tolerance: 0.10
+
+    # ── Perilaku mecanum ─────────────────────────────────────────────────
+    min_heading_error_for_sideways: 0.3
+    max_sideways_ratio: 0.3
+    final_orientation_weight: 3.0
+    position_first: true
+
+    # ── Trajectory sampling ──────────────────────────────────────────────
+    prediction_time: 1.5
+    dt: 0.1
+    vx_samples: 7
+    vy_samples: 7
+    w_samples: 5
+
+    # ── [MOD-4] Dynamic safety margin — Lin et al. 2025 ─────────────────
+    r_safe_base: 0.18
+    k_sigma: 1.0
+    r_safe_min: 0.14
+    r_safe_max: 0.35
+
+    # ── [MOD-5] Path deviation score — Yang et al. 2023 ─────────────────
+    # lambda_path sedikit lebih tinggi agar R3 konsisten mengikuti global path
+    lambda_path: 2.2
+    max_pose_variance: 0.30
+
+    # ── [MOD-11] Reactive LiDAR avoidance ──────────────────────────────
+    enable_reactive_avoidance: false
+    front_warning_dist:        0.80
+    front_stop_dist:           0.45
+    side_clearance_min:        0.35
+    avoid_vx_max:              0.06
+    avoid_vy_speed:            0.08
+    hard_peer_escape_enabled:  true
+    hard_peer_escape_distance: 0.65
+    hard_peer_escape_speed:    0.15
+    crossing_owner_ignore_peer_obstacle_enabled: false
+    hard_peer_escape_side_clearance: 0.18
+    avoid_w_max:               0.12
+    obstacle_clearance_weight: 0.08
+    avoid_lateral_weight:      0.40
+    stuck_timeout:             8.0
+    stuck_min_progress:        0.10
+    enable_stuck_detector:     false
+
+    # ── [MOD-12] Local costmap DWA ───────────────────────────────────────
+    avoidance_mode:            costmap
+    local_costmap_size:        3.0
+    local_costmap_resolution:  0.05
+    obstacle_min_range:        0.08
+    obstacle_max_range:        2.5
+    inflation_radius: 0.15
+    lethal_cost:               255
+    lethal_threshold:          250
+    local_cost_weight: 0.05
+    cost_max_weight:           0.7
+    cost_avg_weight:           0.3
+
+    # ── [MOD-14] Corner-aware speed control ─────────────────────────────
+    corner_slowdown_enabled:    false
+    corner_angle_threshold_deg: 50.0
+    corner_slowdown_radius: 0.90
+    corner_speed_ratio: 0.55
+    corner_lookahead_distance: 0.25
+
+    # ── [MOD-15] Blocked recovery with backtracking ──────────────────────
+    enable_backtracking_recovery: true
+    blocked_timeout:            3.0
+    backtrack_distance:         0.40
+    clear_time:                 1.5
+    backtracking_speed:         0.05
+
+    # ── [MOD-16] Lateral suppression ────────────────────────────────────
+    heading_lateral_suppress_enabled: false
+    heading_lateral_threshold_deg: 30.0
+    heading_lateral_max_vy: 0.01
+
+    # ── [MOD-17] Holonomic path tracker ─────────────────────────────────
+    use_holonomic_path_tracker: true
+    k_cte: 0.6
+    k_heading: 1.2
+    max_lateral_correction: 0.10
+    max_heading_w: 0.30
+    path_heading_tracking_enabled: false
+    heading_translation_gate_enabled: false
+    heading_translation_gate_deg: 25.0
+    heading_translation_gate_scale: 0.0
+    angular_translation_lock_enabled: false
+    angular_translation_lock_w: 0.08
+    angular_translation_lock_scale: 0.0
+    final_goal_vector_radius: 1.20
+    final_goal_vector_kp: 0.8
+    omega_global_limit: 0.30
+    omega_slew_rate_limit: 0.12   # [FIX-HEADING] 0.08->0.12 kurangi lag heading saat resume dari yield (merge)
+    motion_mixing_guard_enabled: false
+    mixing_omega_vy_zero_threshold: 0.045
+    mixing_heading_error_deg: 25.0
+    mixing_heading_vx_scale: 0.60
+    mixing_corner_vx_scale: 1.00
+    mixing_corner_omega_limit: 0.06
+    mixing_corner_vy_zero: false
+    localization_guard_enabled: true   # [FIX-LOC-EN] halt saat AMCL diverge (COV_INVALID/POSE_STALE)
+    localization_sigma_threshold: 0.80
+    localization_hard_sigma_threshold: 1.20
+    localization_invalid_hold_s: 2.50
+    localization_recover_s: 0.50
+    localization_guard_min_start_s: 8.0
+    localization_guard_require_valid_once: true
+    localization_consistency_guard_enabled: false
+    localization_consistency_trans_threshold: 0.60
+    localization_consistency_yaw_threshold_deg: 55.0
+    goal_reached_stable_s: 1.0

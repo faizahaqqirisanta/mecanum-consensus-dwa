@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>haqqi_ta</name>
+  <version>0.1.0</version>
+  <description>
+    Multi-Agent Coordination Control for 3 Yahboom RDK X5 Mecanum Robots.
+    Implements Modified DWA (L3), Average Consensus (L4), Stop-and-Go
+    Priority Management (L5), Software Fault Injection, and Experiment Logger.
+    Referensi: Yang et al. 2023, Lin et al. 2025, Ren &amp; Beard 2008.
+  </description>
+
+  <maintainer email="5022221135@student.its.ac.id">Faiza Haqqi</maintainer>
+  <license>MIT</license>
+
+  <!-- Build system -->
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- ROS2 core -->
+  <depend>rclpy</depend>
+  <depend>ament_index_python</depend>
+
+  <!-- Message types -->
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+
+  <!-- TF -->
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+
+  <!-- Lokalisasi -->
+  <depend>nav2_amcl</depend>
+  <depend>nav2_map_server</depend>
+  <depend>nav2_lifecycle_manager</depend>
+  <depend>robot_localization</depend>
+
+  <!-- Python deps (tersedia via pip / apt) -->
+  <depend>python3-numpy</depend>
+  <depend>python3-scipy</depend>   <!-- global_path_node: distance_transform_edt -->
+  <depend>python3-yaml</depend>    <!-- consensus/priority/logger/master_cli: yaml.safe_load -->
+
+  <!-- Testing -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
